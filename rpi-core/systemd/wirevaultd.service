@@ -1,0 +1,16 @@
+[Unit]
+Description=WireVault VPN vigilance control daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/wirevaultd /etc/wirevault/wirevault.json
+Restart=on-failure
+RestartSec=5
+# Needs root for nft/wg/dnsmasq control
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

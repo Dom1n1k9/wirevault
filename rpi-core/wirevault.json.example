@@ -1,0 +1,31 @@
+{
+  "wg_interface": "wg0",
+  "address": "10.66.0.1/24",
+  "listen_port": "51820",
+  "wg_private_key_path": "/etc/wirevault/keys/wg0.key",
+  "peers": [
+    {
+      "name": "phone",
+      "pubkey": "REPLACE_WITH_PEER_PUBKEY",
+      "allowed_ips": ["10.66.0.2/32"],
+      "persistent_keepalive": 25,
+      "enabled": true
+    }
+  ],
+  "filter_rules": [
+    { "id": "r1", "action": "block", "host": "203.0.113.5", "port": 0, "proto": "" }
+  ],
+  "dns": {
+    "enabled": true,
+    "blocklist_path": "/etc/wirevault/dns-blocklist.conf",
+    "upstream": "1.1.1.1",
+    "port": 53
+  },
+  "watch": {
+    "suricata_eve": "/var/log/suricata/eve.json",
+    "fail2ban_jail": "sshd"
+  },
+  "db_path": "/var/lib/wirevault/wirevault.db",
+  "control_socket": "/run/wirevault.sock",
+  "poll_interval_s": 10
+}

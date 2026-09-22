@@ -1,0 +1,42 @@
+# WireVault — build artifacts, secrets, runtime state
+
+# C/C++ / CMake
+/build/
+/build_*/
+*.o
+*.a
+*.elf
+*.map
+
+# Python (none used, but safe)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+webgui/node_modules/
+webgui/dist/
+
+# Runtime state (DBs, logs, WG keys - never commit)
+/data/
+*.db
+*.sqlite
+*.log
+*.out
+*.err
+gh*.txt
+/runtime/
+/keys/
+*.key
+*.pem
+.env
+/etc/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
