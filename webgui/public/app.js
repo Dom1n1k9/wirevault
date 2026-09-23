@@ -77,7 +77,8 @@ ws.onopen = () => { setConn(true); refresh(); setInterval(refresh, 5000); };
 ws.onclose = () => setConn(false);
 
 ws.onmessage = (e) => {
-  const msg = JSON.parse(e.data);
+  let msg;
+  try { msg = JSON.parse(e.data); } catch { return; }
   if (msg.t === "result" && pending.has(msg.id)) {
     const p = pending.get(msg.id);
     pending.delete(msg.id);
@@ -86,6 +87,12 @@ ws.onmessage = (e) => {
     const p = pending.get(msg.id);
     pending.delete(msg.id);
     p.reject(new Error(msg.error));
+  } else if (msg.event === "incident") {
+    // live threat/incident pushed from the daemon -> refresh the feed
+    refresh();
+  } else if (msg.event === "wg.status") {
+    // live peer snapshot from the daemon
+    refresh();
   }
 };
 

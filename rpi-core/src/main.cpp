@@ -50,11 +50,27 @@ int main(int argc, char **argv) {
   NetFilterMgr nf(cfg);
   DnsFilterMgr dns(cfg);
 
-  // watch pipeline -> incident store + event bus
+  // control server must exist before we wire live broadcasts to it.
+  // (handler is defined below; start() is called after the handler exists.)
+  std::unique_ptr<ControlServer> server;
+
+  // watch pipeline -> incident store + control-socket broadcast.
+  // Both suricata events and fail2ban bans become live "incident" events
+  // pushed to connected GUI clients, and are also written to the audit DB.
   bus.subscribe("threat.suricata", [&](const std::string &ev, const Json &d) {
     (void)ev;
     store.add("threat", d.at("severity", Json(std::string("info"))).asStr(),
               d.at("sig", Json(std::string("suricata alert"))).asStr(), d);
+    if (server)
+      server->broadcast("incident", d);
+  });
+  bus.subscribe("threat.fail2ban", [&](const std::string &ev, const Json &d) {
+    (void)ev;
+    store.add("threat", "warning",
+              "fail2ban banned " + d.at("src", Json(std::string{})).asStr(),
+              d);
+    if (server)
+      server->broadcast("incident", d);
   });
 
   SuricataWatch sw(cfg, bus);
@@ -145,14 +161,15 @@ int main(int argc, char **argv) {
     return r;
   };
 
-  ControlServer server(cfg.control_socket, handler);
-  server.start();
+  server = std::make_unique<ControlServer>(cfg.control_socket, handler);
+  server->start();
   WV_INFO("control socket on %s", cfg.control_socket.c_str());
 
   std::signal(SIGINT, on_signal);
   std::signal(SIGTERM, on_signal);
 
   int64_t pm = 0;
+  std::vector<std::string> known_banned;
   while (g_running) {
     int64_t now = (int64_t)time(nullptr);
     if (now - pm >= cfg.poll_interval_s) {
@@ -164,12 +181,27 @@ int main(int argc, char **argv) {
           st.begin(), st.end(),
           [](const PeerStatus &s) { return s.online; })));
       ev.set("blocked_hits", Json(0));
-      server.broadcast("wg.status", ev);
+      server->broadcast("wg.status", ev);
+
+      // poll fail2ban for newly banned IPs -> emit as live threats
+      auto banned = f2b.pollBanned();
+      for (const auto &ip : banned) {
+        if (std::find(known_banned.begin(), known_banned.end(), ip) ==
+            known_banned.end()) {
+          known_banned.push_back(ip);
+          Json th(Json::Object{});
+          th.set("kind", Json(std::string("threat")));
+          th.set("severity", Json(std::string("warning")));
+          th.set("src", Json(ip));
+          th.set("sig", Json(std::string("fail2ban banned ip")));
+          bus.publish("threat.fail2ban", th);
+        }
+      }
     }
     std::this_thread::sleep_for(std::chrono::seconds(std::max(1, cfg.poll_interval_s)));
   }
 
-  server.stop();
+  server->stop();
   WV_INFO("WireVault stopped");
   return 0;
 }
