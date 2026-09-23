@@ -13,9 +13,9 @@
 #endif
 
 #include <cstring>
+#include <cerrno>
 #include <memory>
 #include <string>
-
 #include "wirevault/logging.hpp"
 
 namespace wv {
@@ -71,11 +71,28 @@ Json CtlClient::request(const std::string &method, const Json &params) {
   }
 #endif
 
-  // send request
+  // send request (write-all loop; sockets can short-write)
+  const char *p = out.data();
+  size_t left = out.size();
 #ifdef _WIN32
-  ::send(fd, out.data(), (int)out.size(), 0);
+  while (left > 0) {
+    int n = ::send(fd, p, (int)left, 0);
+    if (n <= 0)
+      break;
+    p += n;
+    left -= (size_t)n;
+  }
 #else
-  ::write(fd, out.data(), out.size());
+  while (left > 0) {
+    ssize_t n = ::write(fd, p, left);
+    if (n <= 0) {
+      if (n < 0 && errno == EINTR)
+        continue;
+      break;
+    }
+    p += n;
+    left -= (size_t)n;
+  }
 #endif
 
   // read response (newline terminated, cap size)

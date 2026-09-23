@@ -157,15 +157,14 @@ int main(int argc, char **argv) {
     int64_t now = (int64_t)time(nullptr);
     if (now - pm >= cfg.poll_interval_s) {
       pm = now;
-      // emit a status snapshot to GUI clients (via control server broadcast)
-      // peers status is polled by the GUI's peer.list, but a periodic wg.apply
-      // keeps us converged.
+      // live status snapshot pushed to GUI clients on wg.status
       auto st = wg.status();
       Json ev(Json::Object{});
-      ev.set("peers_online", Json((int64_t)std::count_if(st.begin(), st.end(),
-                                    [](const PeerStatus &s) { return s.online; })));
+      ev.set("peers_online", Json((int64_t)std::count_if(
+          st.begin(), st.end(),
+          [](const PeerStatus &s) { return s.online; })));
       ev.set("blocked_hits", Json(0));
-      // (broadcast requires the server to retain clients; scaffold: no-op)
+      server.broadcast("wg.status", ev);
     }
     std::this_thread::sleep_for(std::chrono::seconds(std::max(1, cfg.poll_interval_s)));
   }
