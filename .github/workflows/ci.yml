@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  cpp:
+    name: C++ build + tests (Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build \
+            pkg-config libsqlite3-dev sqlite3
+
+      - name: Configure + build
+        working-directory: rpi-core
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j$(nproc)
+
+      - name: Run tests
+        working-directory: rpi-core
+        run: |
+          ctest --test-dir build --output-on-failure
+          ./build/wirevault-tests
+          ./build/wirevault-incident-tests
+
+      - name: Build wvctl + wirevaultd sanity
+        working-directory: rpi-core
+        run: |
+          test -x build/wirevaultd
+          test -x build/wvctl
+
+  webgui:
+    name: TypeScript typecheck (Node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install + typecheck
+        working-directory: webgui
+        run: |
+          npm ci
+          npm run build

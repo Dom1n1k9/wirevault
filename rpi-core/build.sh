@@ -22,5 +22,6 @@ cmake --build "$BUILD_DIR" -j"$(nproc)"
 echo
 echo "Binaries:"
 echo "  $BUILD_DIR/wirevaultd      (sudo ./build/wirevaultd /etc/wirevault/wirevault.json)"
+echo "  $BUILD_DIR/wvctl           (control client: ./build/wvctl peer.list)"
 echo "  $BUILD_DIR/wirevault-tests (config/json tests)"
 echo "  $BUILD_DIR/wirevault-incident-tests (sqlite incident tests)"

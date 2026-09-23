@@ -47,9 +47,11 @@ setup.
 
 ```bash
 cd rpi-core
-./build.sh                # builds wirevaultd + tests against libmosquitto, sqlite3
-./build/wirevault-tests   # self-test
+./build.sh                # builds wirevaultd + wvctl + tests
+./build/wirevault-tests   # config/json self-test
+./build/wirevault-incident-tests   # sqlite incident round-trip
 sudo ./build/wirevaultd /etc/wirevault/wirevault.json
+./build/wvctl peer.list   # query the running daemon (see docs/PROTOCOL.md)
 ```
 
 ```bash

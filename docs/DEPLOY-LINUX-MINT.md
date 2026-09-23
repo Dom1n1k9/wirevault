@@ -34,9 +34,20 @@ and adjust interface/peers. **Never commit** `/etc/wirevault`.
 
 ```bash
 cd rpi-core
-./build.sh                  # -> build/wirevaultd, build/wirevault-tests
-./build/wirevault-tests     # run self-tests
+./build.sh                  # -> build/wirevaultd, build/wvctl, build/wirevault-tests
+./build/wirevault-tests     # run config/json self-tests
+./build/wirevault-incident-tests   # sqlite incident round-trip
 sudo ./build/wirevaultd /etc/wirevault/wirevault.json
+```
+
+Control client:
+
+```bash
+./build/wvctl system.info
+./build/wvctl peer.list
+./build/wvctl wg.apply
+./build/wvctl filter.current
+./build/wvctl watch.incidents '{"limit":25}'
 ```
 
 systemd unit (root): `sudo cp rpi-core/systemd/wirevaultd.service /etc/systemd/system/`
