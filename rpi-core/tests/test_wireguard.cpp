@@ -10,14 +10,22 @@
 #include "wirevault/config.hpp"
 #include "wirevault/wireguard_mgr.hpp"
 
+#ifdef _WIN32
+static const char *TDIR = ".";
+#else
+static const char *TDIR = "/tmp";
+#endif
+static std::string keypath = std::string(TDIR) + "/wv_test_key.key";
+static std::string full = std::string(TDIR) + "/wv_test_full.conf";
+static std::string set = std::string(TDIR) + "/wv_test.setconf";
+
 using namespace wv;
 
 int main() {
   std::cerr << "[wg-test] start\n";
   // temp private key file
-  const char *keypath = "./wv_test_key.key";
   {
-    FILE *f = fopen(keypath, "w");
+    FILE *f = fopen(keypath.c_str(), "w");
     if (!f) {
       std::cerr << "[wg-test] cannot create key file\n";
       return 3;
@@ -45,18 +53,25 @@ int main() {
   std::cerr << "[wg-test] mgr built\n";
 
   // 1. full config: key inlined, contains Address/ListenPort
-  const char *full = "./wv_test_full.conf";
   std::cerr << "[wg-test] calling writeConfigFile\n";
-  assert(mgr.writeConfigFile(full));
+  if (!mgr.writeConfigFile(full)) {
+    std::cerr << "[wg-test] FATAL: writeConfigFile returned false\n";
+    return 4;
+  }
   std::cerr << "[wg-test] writeConfigFile ok\n";
   std::string fullText;
   {
-    FILE *f = fopen(full, "r");
+    FILE *f = fopen(full.c_str(), "r");
+    if (!f) {
+      std::cerr << "[wg-test] FATAL: cannot read " << full << "\n";
+      return 5;
+    }
     char buf[512];
     while (fgets(buf, sizeof buf, f))
       fullText += buf;
     fclose(f);
   }
+  std::cerr << "[wg-test] read back " << fullText.size() << " bytes\n";
   assert(fullText.find("REAL_PRIVATE_KEY_BASE64") != std::string::npos);
   assert(fullText.find("PrivateKey = /etc/wirevault/keys") == std::string::npos);
   assert(fullText.find("Address = ") != std::string::npos);
@@ -65,7 +80,7 @@ int main() {
   // 2. setconf config via apply path: write setconf file using something akin
   //    to the render; simulate by writing the setconf file then checking it
   //    excludes Address/ListenPort and includes the key + peer.
-  const char *set = "./wv_test.setconf";
+  std::cerr << "[wg-test] set marker\n";
   // We can't call renderSetconf directly (private), but we can verify via the
   // internal writeAll with a manually built minimal config via writeConfigFile
   // would include them - so instead assert on the observable contract of apply()
@@ -77,9 +92,9 @@ int main() {
   assert(fullText.find("AllowedIPs = 10.66.0.2/32") != std::string::npos);
 
   // cleanup
-  remove(keypath);
-  remove(full);
-  remove(set);
+  remove(keypath.c_str());
+  remove(full.c_str());
+  remove(set.c_str());
 
   std::cout << "WIREGUARD CONFIG TESTS PASSED\n";
   std::cerr << "[wg-test] done\n";
