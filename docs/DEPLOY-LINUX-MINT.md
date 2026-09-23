@@ -37,6 +37,7 @@ cd rpi-core
 ./build.sh                  # -> build/wirevaultd, build/wvctl, build/wirevault-tests
 ./build/wirevault-tests     # run config/json self-tests
 ./build/wirevault-incident-tests   # sqlite incident round-trip
+./build/wirevault-wg-tests  # wg config rendering (key inline, setconf shape)
 sudo ./build/wirevaultd /etc/wirevault/wirevault.json
 ```
 

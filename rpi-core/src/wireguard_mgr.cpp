@@ -2,13 +2,27 @@
 #include "wirevault/wireguard_mgr.hpp"
 
 #include <cstdio>
+#include <cstring>
 #include <ctime>
+#include <fstream>
 #include <sstream>
 
 #include "wirevault/logging.hpp"
 #include "wirevault/subproc.hpp"
 
 namespace wv {
+
+// Reads the private key file and trims whitespace. Returns "" on error.
+static std::string readKeyFile(const std::string &path) {
+  std::ifstream f(path);
+  if (!f)
+    return "";
+  std::string key;
+  std::getline(f, key);
+  while (!key.empty() && (key.back() == '\n' || key.back() == '\r'))
+    key.pop_back();
+  return key;
+}
 
 // parse `wg show <if> json` output into status
 std::vector<PeerStatus> WireGuardMgr::status() {
@@ -63,14 +77,38 @@ std::pair<std::string, std::string> WireGuardMgr::generateKeypair() {
 }
 
 bool WireGuardMgr::writeConfigFile(const std::string &path) {
+  // Full wg-quick style config: Address/ListenPort + inline PrivateKey
+  // (wg-quick expands behavior, but the PrivateKey must be key material,
+  // not a filesystem path).
+  std::string key = readKeyFile(cfg_.wg_private_key_path);
+  if (key.empty()) {
+    WV_ERROR("private key missing at %s", cfg_.wg_private_key_path.c_str());
+    return false;
+  }
   std::string conf;
   conf += "[Interface]\n";
   conf += "Address = " + cfg_.address + "\n";
   conf += "ListenPort = " + cfg_.listen_port + "\n";
-  if (!cfg_.wg_private_key_path.empty())
-    conf += "PrivateKey = /etc/wirevault/keys/" + cfg_.wg_interface + ".key\n";
+  conf += "PrivateKey = " + key + "\n";
+  conf += peerBlocks();
+  return writeAll(path, conf);
+}
+
+// Minimal config for `wg setconf`: only PrivateKey + Peers. `wg setconf`
+// rejects Address/ListenPort (those are wg-quick directives).
+std::string WireGuardMgr::renderSetconf() const {
+  std::string key = readKeyFile(cfg_.wg_private_key_path);
+  std::string conf = "[Interface]\n";
+  if (!key.empty())
+    conf += "PrivateKey = " + key + "\n";
+  conf += peerBlocks();
+  return conf;
+}
+
+std::string WireGuardMgr::peerBlocks() const {
+  std::string conf;
   for (const auto &p : cfg_.peers) {
-    if (!p.enabled)
+    if (!p.enabled || p.pubkey.empty())
       continue;
     conf += "\n[Peer]\n";
     conf += "PublicKey = " + p.pubkey + "\n";
@@ -88,7 +126,10 @@ bool WireGuardMgr::writeConfigFile(const std::string &path) {
     }
     conf += "\n";
   }
+  return conf;
+}
 
+bool WireGuardMgr::writeAll(const std::string &path, const std::string &content) const {
   if (path.empty())
     return false;
   FILE *f = fopen(path.c_str(), "w");
@@ -96,7 +137,7 @@ bool WireGuardMgr::writeConfigFile(const std::string &path) {
     WV_ERROR("cannot write %s", path.c_str());
     return false;
   }
-  fputs(conf.c_str(), f);
+  fputs(content.c_str(), f);
   fclose(f);
   return true;
 }
@@ -106,19 +147,22 @@ bool WireGuardMgr::persist() {
 }
 
 std::pair<bool, std::string> WireGuardMgr::apply() {
-  // Ensure interface exists (wg-quick up idempotent-ish)
+  // Ensure the interface exists. Use wg-quick up only if not already up.
   auto up = runCommand({"wg-quick", "up", cfg_.wg_interface});
   if (!up.ok()) {
-    // might already be up
     WV_DEBUG("wg-quick up status note: %s", up.stderr_text.c_str());
   }
-  // write config then apply via wg setconf
+  // Persist the full config for wg-quick on reboot...
   if (!persist())
-    return {false, "could not persist wg0.conf"};
-  auto set = runCommand({"wg", "setconf", cfg_.wg_interface,
-                         "/etc/wirevault/" + cfg_.wg_interface + ".conf"});
+    return {false, "could not persist " + cfg_.wg_interface + ".conf"};
+  // ...but apply via `wg setconf` with a minimal config (PrivateKey + Peers),
+  // which is what the kernel interface accepts.
+  std::string setPath = "/etc/wirevault/" + cfg_.wg_interface + ".setconf";
+  if (!writeAll(setPath, renderSetconf()))
+    return {false, "could not write setconf"};
+  auto set = runCommand({"wg", "setconf", cfg_.wg_interface, setPath});
   if (!set.ok())
-    return {false, "wg setconf failed"};
+    return {false, "wg setconf failed: " + set.stderr_text};
   return {true, "applied"};
 }
 

@@ -50,6 +50,7 @@ cd rpi-core
 ./build.sh                # builds wirevaultd + wvctl + tests
 ./build/wirevault-tests   # config/json self-test
 ./build/wirevault-incident-tests   # sqlite incident round-trip
+./build/wirevault-wg-tests # WG config rendering (key inline, setconf shape)
 sudo ./build/wirevaultd /etc/wirevault/wirevault.json
 ./build/wvctl peer.list   # query the running daemon (see docs/PROTOCOL.md)
 ```

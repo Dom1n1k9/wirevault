@@ -40,6 +40,9 @@ public:
   bool persist();
 
 private:
+  std::string peerBlocks() const;
+  std::string renderSetconf() const;
+  bool writeAll(const std::string &path, const std::string &content) const;
   Config cfg_;
 };
 

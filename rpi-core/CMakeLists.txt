@@ -54,3 +54,8 @@ add_executable(wirevault-incident-tests tests/test_incidents.cpp)
 target_include_directories(wirevault-incident-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(wirevault-incident-tests PRIVATE wirevault_core)
 add_test(NAME incident_tests COMMAND wirevault-incident-tests)
+
+add_executable(wirevault-wg-tests tests/test_wireguard.cpp)
+target_include_directories(wirevault-wg-tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(wirevault-wg-tests PRIVATE wirevault_core)
+add_test(NAME wg_config_tests COMMAND wirevault-wg-tests)
