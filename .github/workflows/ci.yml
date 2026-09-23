@@ -30,6 +30,16 @@ jobs:
           ctest --test-dir build --output-on-failure
           ./build/wirevault-tests
           ./build/wirevault-incident-tests
+          ./build/wirevault-wg-tests
+
+      - name: Sanitizer build + tests (ASan/UBSan)
+        working-directory: rpi-core
+        run: |
+          cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+          cmake --build build-asan -j$(nproc)
+          ctest --test-dir build-asan --output-on-failure
 
       - name: Build wvctl + wirevaultd sanity
         working-directory: rpi-core

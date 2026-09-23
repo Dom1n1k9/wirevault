@@ -13,13 +13,19 @@
 using namespace wv;
 
 int main() {
+  std::cerr << "[wg-test] start\n";
   // temp private key file
   const char *keypath = "./wv_test_key.key";
   {
     FILE *f = fopen(keypath, "w");
+    if (!f) {
+      std::cerr << "[wg-test] cannot create key file\n";
+      return 3;
+    }
     fputs("REAL_PRIVATE_KEY_BASE64\n", f);
     fclose(f);
   }
+  std::cerr << "[wg-test] key written\n";
 
   Config cfg;
   cfg.wg_interface = "wg0";
@@ -33,12 +39,16 @@ int main() {
   p.persistent_keepalive = 25;
   p.enabled = true;
   cfg.peers.push_back(p);
+  std::cerr << "[wg-test] cfg built\n";
 
   WireGuardMgr mgr(cfg);
+  std::cerr << "[wg-test] mgr built\n";
 
   // 1. full config: key inlined, contains Address/ListenPort
   const char *full = "./wv_test_full.conf";
+  std::cerr << "[wg-test] calling writeConfigFile\n";
   assert(mgr.writeConfigFile(full));
+  std::cerr << "[wg-test] writeConfigFile ok\n";
   std::string fullText;
   {
     FILE *f = fopen(full, "r");
@@ -72,5 +82,6 @@ int main() {
   remove(set);
 
   std::cout << "WIREGUARD CONFIG TESTS PASSED\n";
+  std::cerr << "[wg-test] done\n";
   return 0;
 }
